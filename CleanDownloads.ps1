@@ -1,3 +1,5 @@
+# Extremely experimental! It worked for me but may cause permanent mass file loss
+
 param(
     [string]$SourceDir = "$env:USERPROFILE\Downloads",
     [string]$DestDir = "D: \DownloadsArchive",
