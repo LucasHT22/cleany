@@ -225,6 +225,8 @@ func Run(entries []*scanner.Entry, total int64, root string) {
 		fmt.Println(magenta + "  [2]" + reset + "  Largest files")
 		fmt.Println(yellow + "  [3]" + reset + "  Space by file type")
 		fmt.Println(red + "  [4]" + reset + "  Delete files")
+		fmt.Println(green + "  [5]" + reset + "  Unused apps + combo suggestions")
+		fmt.Println(blue + "  [6]" + reset + "  Clean app caches")
 		fmt.Println(dim + "  [q]" + reset + "  Quit")
 		fmt.Println()
 
@@ -248,6 +250,10 @@ func Run(entries []*scanner.Entry, total int64, root string) {
 			prompt(dim + "  Press enter to go back..." + reset)
 		case "4":
 			viewDelete(root)
+		case "5":
+			viewApps(root)
+		case "6":
+			viewCache()
 		case "q", "Q":
 			clearScreen()
 			fmt.Println(cyan + bold + "\n Bye bye!\n" + reset)
