@@ -254,6 +254,8 @@ func Run(entries []*scanner.Entry, total int64, root string) {
 			viewApps(root)
 		case "6":
 			viewCache()
+		case "7":
+			viewNodeModules(root)
 		case "q", "Q":
 			clearScreen()
 			fmt.Println(cyan + bold + "\n Bye bye!\n" + reset)
