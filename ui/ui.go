@@ -123,6 +123,61 @@ func viewLargestFiles(root string) {
 		}
 		fmt.Println(barGraph(rel, f.Size, max, 30, barColor(i), pct))
 	}
+
+	fmt.Println()
+	ext := prompt(dim + "  Delete all files by extension? (e.g. .dvcc) or Enter to skip: " + reset)
+	ext =strings.TrimSpace(strings.ToLower(ext))
+	if ext == "" {
+		return
+	}
+	if !strings.HasPrefix(ext, ".") {
+		ext = "." + ext
+	}
+
+	fmt.Printf(dim+"  Scanning for %s files...\n"+reset, ext)
+	var matches []string
+	var totalSize int64
+	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		if strings.ToLower(filepath.Ext(path)) == ext {
+			info, err := d.Info()
+			if err == nil {
+				totalSize += info.Size()
+			}
+			matches = append(matches, path)
+		}
+		return nil
+	})
+
+	if len(matches) == 0 {
+		fmt.Printf(yellow+"  No %s files found.\n"+reset, ext)
+		return
+	}
+
+	fmt.Printf("\n  Found %s%d files%s - %s%s%s\n\n", bold+red, len(matches), reset, bold+white, fmtSize(totalSize), reset)
+
+	confirm := prompt(fmt.Sprintf(red+ "  Delete all %d %s files (%s)? [y/N] "+reset, len(matches), ext, fmtSize(totalSize)))
+	if strings.ToLower(confirm) !="y" {
+		fmt.Println(dim + "  Cancelled." + reset)
+		return
+	}
+
+	deleted, failed := 0, 0
+	for _, p := range matches {
+		if err := os.Remove(p); err != nil {
+			failed++
+		} else {
+			deleted++
+		}
+	}
+
+	fmt.Printf(green+"  Done. Deleted %d files."+reset, deleted)
+	if failed > 0 {
+		fmt.Printf(yellow+"  %d failed (permission delied?)"+reset, failed)
+	}
+	fmt.Println()
 }
 
 func viewExtBreakdown(root string) {
@@ -227,6 +282,7 @@ func Run(entries []*scanner.Entry, total int64, root string) {
 		fmt.Println(red + "  [4]" + reset + "  Delete files")
 		fmt.Println(green + "  [5]" + reset + "  Unused apps + combo suggestions")
 		fmt.Println(blue + "  [6]" + reset + "  Clean app caches")
+		fmt.Println(cyan + "  [7]" + reset + "  node_modules hunter")
 		fmt.Println(dim + "  [q]" + reset + "  Quit")
 		fmt.Println()
 
