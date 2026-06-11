@@ -51,7 +51,7 @@ func scanDirSize(dir string) int64 {
 		if err != nil || d.IsDir() {
 			return nil
 		}
-		info, err := d.IsDir()
+		info, err := d.Info()
 		if err != nil {
 			return nil
 		}
@@ -204,11 +204,11 @@ func SuggestCombos(apps []*App) []ComboGroup {
 		}
 		var total int64
 		for _, a := range list {
-			total += a.sizeMB
+			total += a.SizeMB
 		}
 		groups = append(groups, ComboGroup{
 			Category: cat,
-			Apps: app,
+			Apps: list,
 			TotalMB: total,
 		})
 	}
