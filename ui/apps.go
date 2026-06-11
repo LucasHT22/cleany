@@ -55,7 +55,7 @@ func viewApps(root string) {
 		if filled < 1 && a.SizeMB > 0 {
 			filled = 1
 		}
-		bar := barColor(i) + strings.Repeat("|", filled) + dim + strings.Repeat(".", 30-filled) + reset
+		bar := barColor(i) + strings.Repeat("█", filled) + dim + strings.Repeat("░", 30-filled) + reset
 		daysStr := fmt.Sprintf("%dd ago", a.DaysSinceUse)
 		if a.DaysSinceUse == 0 {
 			daysStr = "unknown"

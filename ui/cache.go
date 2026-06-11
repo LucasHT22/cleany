@@ -41,7 +41,7 @@ func viewCache() {
 		if filled < 1 {
 			filled = 1
 		}
-		bar := barColor(i) + strings.Repeat("|", filled) + dim + strings.Repeat(".", 30-filled) + reset
+		bar := barColor(i) + strings.Repeat("█", filled) + dim + strings.Repeat("░", 30-filled) + reset
 		fmt.Printf("  %2d. %-20s %s  %s%d MB%s\n		%s%s%s\n\n", i+1, truncate(r.App, 20), bar, bold+barColor(i), r.SizeMB, reset, dim, truncate(r.Path, 60), reset)
 	}
 
