@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
+	"runtime"
 )
 
 type Entry struct {
@@ -18,58 +20,65 @@ type Entry struct {
 }
 
 func Scan(root string) ([]*Entry, int64) {
-	dirSizes := map[string]int64{}
-	fileMap := map[string]*Entry{}
-	var allFiles []*Entry
+	var ()
+	fileChan = make(chan *Entry)
 	var total int64
+	var wg sync.WaitGroup
 
-	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		info, err := d.Info()
-		if err != nil {
-			return nil
-		}
-
-		ext := strings.ToLower(filepath.Ext(path))
-		e := &Entry{
-			Path: path,
-			Name: d.Name(),
-			IsDir: d.IsDir(),
-			Ext: ext,
-		}
-
-		if !d.IsDir() {
-			e.Size = info.Size()
-			total += e.Size
-			allFiles = append(allFiles, e)
-
-			dir := filepath.Dir(path)
-			for dir != "" && dir != "." {
-				dirSizes[dir] += e.Size
-				parent := filepath.Dir(dir)
-				if parent == dir {
-					break
-				}
-				dir = parent
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+			if err != nil {
+				return nil
 			}
-		}
+			info, err := d.Info()
+			if err != nil {
+				return nil
+			}
 
-		fileMap[path] = e
-		return nil
-	})
+			ext := strings.ToLower(filepath.Ext(path))
+			e := &Entry{
+				Path: path,
+				Name: d.Name(),
+				IsDir: d.IsDir(),
+				Ext: ext,
+			}
+
+			if !d.IsDir() {
+				e.Size = info.Size()
+				fileChan <- 0
+			}
+			return nil
+		})
+		close(fileChan)
+	}()
+
+	wg.Wait()
+
+	dirSizes := make(map[string]int64)
+	for _, f := range allFiles {
+		dir := filepath.Dir(f.Path)
+		for dir != "" && dir != "." && strings.HasPrefix(dir, root) {
+			dirSizes[dir] += f.Size
+			dir = filepath.Dir(dir)
+		}
+		dirSizes[root] += f.Size
+	}
 
 	rootEntry := &Entry{
 		Path: root,
-		Name: root,
+		Name: filepath.Base(root),
 		IsDir: true,
 		Size: dirSizes[root],
 	}
 
-	seen := map[string]bool{}
+	seen := make(map[string]bool)
 	for _, f := range allFiles {
 		rel, _ := filepath.Rel(root, f.Path)
+		if err != nil {
+			continue
+		}
 		parts := strings.SplitN(rel, string(os.PathSeparator), 2)
 		if len(parts) == 0 {
 			continue
@@ -96,23 +105,15 @@ func Scan(root string) ([]*Entry, int64) {
 	}
 
 	sort.Slice(rootEntry.Children, func(i, j int) bool {
+		if rootEntry.Children[i].IsDir && !rootEntry.Children[j].IsDir {
+			return true
+		}
+		if !rootEntry.Children[i].IsDir && rootEntry.Children[j].IsDir {
+			return false
+		}
 		return rootEntry.Children[i].Size > rootEntry.Children[j].Size
 	})
-	if len(allFiles) > 20 {
-		allFiles = allFiles[:20]
-	}
-
-	extMap := map[string]int64{}
-	for _, f := range allFiles {
-		if f.Ext == "" {
-			extMap["(no ext)"] += f.Size
-		} else {
-			extMap[f.Ext] += f.Size
-		}
-	}
-
-	_ = extMap
-
+	
 	return rootEntry.Children, total
 }
 
