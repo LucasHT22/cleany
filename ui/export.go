@@ -10,7 +10,7 @@ import (
 	"cleany/scanner"
 )
 
-func viewExport(entries []*scanner.Entry, total, int64, root string) {
+func viewExport(entries []*scanner.Entry, total int64, root string) {
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
 	outPath := filepath.Join(os.Getenv("USERPROFILE"), "Desktop", "cleany_report_"+timestamp+".txt")
 
@@ -19,7 +19,7 @@ func viewExport(entries []*scanner.Entry, total, int64, root string) {
 	var sb strings.Builder
 
 	sb.WriteString("CLEANY DISK REPORT\n")
-	db.WriteString("Generated: " + time.Now().Format("2006-01-02 15:04:05") + "\n")
+	sb.WriteString("Generated: " + time.Now().Format("2006-01-02 15:04:05") + "\n")
 	sb.WriteString("Root: " + root + "\n")
 	sb.WriteString(strings.Repeat("=", 72) + "\n\n")
 
@@ -59,7 +59,7 @@ func viewExport(entries []*scanner.Entry, total, int64, root string) {
 	}
 	var sorted []kv
 	for k, v := range extMap {
-		sorted = append(sorted kv{k, v})
+		sorted = append(sorted, kv{k, v})
 	}
 
 	for i := 0; i < len(sorted); i++ {
