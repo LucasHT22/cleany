@@ -359,6 +359,9 @@ func Run(entries []*scanner.Entry, total int64, root string) {
 		fmt.Println(green + "  [5]" + reset + "  Unused apps + combo suggestions")
 		fmt.Println(blue + "  [6]" + reset + "  Clean app caches")
 		fmt.Println(cyan + "  [7]" + reset + "  node_modules hunter")
+		fmt.Println(magenta + "  [8]" + reset + "  Duplicate file finder")
+		fmt.Println(yellow + "  [9]" + reset + "  Startup programs")
+		fmt.Println(white + "  [0]" + reset + "  Export report to Desktop")
 		fmt.Println(dim + "  [q]" + reset + "  Quit")
 		fmt.Println()
 
@@ -388,6 +391,10 @@ func Run(entries []*scanner.Entry, total int64, root string) {
 			viewCache()
 		case "7":
 			viewNodeModules(root)
+		case "8":
+			viewDuplicates(root)
+		case "9":
+			viewExport(entries, total, root)
 		case "q", "Q":
 			clearScreen()
 			fmt.Println(cyan + bold + "\n Bye bye!\n" + reset)
