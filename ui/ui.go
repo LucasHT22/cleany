@@ -283,7 +283,69 @@ func viewExtBreakdown(root string) {
 		if total > 0 {
 			pct = float64(kv.v) / float64(total) * 100
 		}
-		fmt.Println(barGraph(kv.k, kv.v, max, 30, barColor(i), pct))
+		fmt.Printf("  %s%2d.%s %s\n", bold+barColor(i), i+1, reset, barGraph(kv.k, kv.v, max, 28, barColor(i), pct)[2:])
+	}
+
+	fmt.Println()
+	choice := prompt(dim + "  Enter a number to delete all files of that type, or Enter to skip: " + reset)
+	choice = strings.TrimSpace(choice)
+	if choice == "" {
+		return
+	}
+
+	var idx int
+	if _, err := fmt.Sscanf(choice, "%d", &idx); err != nil || idx < 1 || idx > len(sorted) {
+		fmt.Println(red + "  Invalid choice." + reset)
+		return
+	}
+
+	ext := sorted[idx-1].k
+	estSize := sorted[idx-1].v
+	fmt.Printf(dim+"  Scanning for %s files...\n"+reset, ext)
+	var matches []string
+	var totalSize int64
+	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		fileExt := strings.ToLower(filepath.Ext(path))
+		if fileExt == "" {
+			fileExt = "(no ext)"
+		}
+		if fileExt == ext {
+			info, err := d.Info()
+			if err == nil {
+				totalSize += info.Size()
+			}
+			matches = append(matches, path)
+		}
+		return nil
+	})
+
+	if len(matches) == 0 {
+		fmt.Printf(yellow+"  No %s files found.\n"+reset, ext)
+		return
+	}
+
+	fmt.Printf("\n  Found %s%d files%s - %s%s%s %s(estimated: %s)\n\n", bold+red, len(matches), ext, bold+white, fmtSize(totalSize), reset, dim, fmtSize(estSize), reset)
+
+	confirm := prompt(fmt.Sprintf(red+"  Delete all %d %s files (%s)? [y/N] "+reset, len(matches), ext, fmtSize(totalSize)))
+	if strings.ToLower(confirm) != "y" {
+		fmt.Println(dim + "  Cancelled!" + reset)
+		return
+	}
+
+	deleted, failed := 0, 0
+	for _, p := range matches {
+		if err := os.Remove(p); err != nil {
+			failed++
+		} else {
+			deleted++
+		}
+	}
+	fmt.Printf(green+"  Done! Deleted %d files."+reset+"\n", deleted)
+	if failed > 0 {
+		fmt.Printf(yellow+"  %d failed (permission denied?)\n"+reset, failed)
 	}
 }
 
