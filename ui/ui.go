@@ -85,25 +85,101 @@ func prompt(msg string) string {
 	return strings.TrimSpace(sc.Text())
 }
 
-func viewFolders(entries []*scanner.Entry, total int64) {
-	fmt.Println(bold + cyan + "  DISK USAGE BY FOLDER" + reset)
-	fmt.Println(dim + "  " + strings.Repeat("-", 72) + reset)
-	max := int64(1)
-	if len(entries) > 0 {
-		max = entries[0].Size
+func viewFolders(entries []*scanner.Entry, total int64, root string) {
+	currentEntries := entries
+	currentTotal := total
+	currentPath := root
+
+	type level struct {
+		path string
+		entries []*scanner.Entry
+		total int64
 	}
-	limit := 15
-	if len(entries) < limit {
-		limit = len(entries)
-	}
-	for i, e := range entries[:limit] {
-		pct := 0.0
-		if total > 0 {
-			pct = float64(e.Size) / float64(total) * 100
+	stack := []level{}
+
+	for {
+		clearScreen()
+		PrintBanner()
+		fmt.Println(bold + cyan + "  DISK USAGE BY FOLDER" + reset)
+		fmt.Println(dim + "  " + strings.Repeat("-", 72) + reset)
+		
+		if len(stack) > 0 {
+			crumb := ""
+			for _, l := range stack {
+				crumb += filepath.Base(l.path) + " > "
+			}
+			crumb += filepath.Base(currentPath)
+			fmt.Printf("  %s%s%s\n", dim, crumb, reset)
+		} else {
+			fmt.Printf("  %s%s%s\n", dim, currentPath, reset)
 		}
-		fmt.Println(barGraph(e.Name, e.Size, max, 30, barColor(i), pct))
+		fmt.Println()
+
+		max := int64(1)
+		if len(currentEntries) > 0 {
+			max = currentEntries[0].Size
+		}
+		limit := 15
+		if len(currentEntries) < limit {
+			limit = len(currentEntries)
+		}
+		for i, e := range currentEntries[:limit] {
+			pct := 0.0
+			if currentTotal > 0 {
+				pct = float64(e.Size) / float64(currentTotal) * 100
+			}
+			marker := " "
+			if e.IsDir {
+				marker = ">"
+			}
+			fmt.Printf("  %s%2d.%s%s %s\n", bold+barColor(i), i+1, reset, marker, barGraph(e.Name, e.Size, max, 28, barColor(i), pct)[2:])
+		}
+		fmt.Printf("\n %sTotal: %s%s%s\n", dim, bold+white, fmtSize(currentTotal), reset)
+		
+		if len(stack) > 0 {
+			fmt.Println(dim + "  Enter a number to drill in, 'q' to go up, 'qq' to exit." + reset)
+		} else {
+			fmt.Println(dim + "  Enter a number to drill into a folder, or 'q' to go back." + reset)
+		}
+		fmt.Println()
+
+		choice := prompt(bold + "  > " + reset)
+
+		if choice == "qq" {
+			return
+		}
+		if choice == "q" || choice == "Q" {
+			if len(stack) == 0 {
+				return
+			}
+
+			top := stack[len(stack)-1]
+			stack = stack[:len(stack)-1]
+			currentPath = top.path
+			currentEntries = top.entries
+			currentTotal = top.total
+			continue
+		}
+
+		var idx int
+		if _, err := fmt.Sscanf(choice, "%d", &idx); err != nil || idx < 1 || idx > limit {
+			continue
+		}
+
+		target := currentEntries[idx-1]
+		if !target.IsDir {
+			fmt.Println(yellow + "  That's a file, not a folder!" + reset)
+			prompt("  Press Enter to continue...")
+			continue
+		}
+
+		stack = append(stack, level{currentPath, currentEntries, currentTotal})
+		fmt.Println(dim + "  Scanning..." + reset)
+		subEntries, subTotal := scanner.Scan(target.Path)
+		currentPath = target.Path
+		currentEntries = subEntries
+		currentTotal = subTotal
 	}
-	fmt.Printf("\n %sTotal: %s%s%s\n", dim, bold+white, fmtSize(total), reset)
 }
 
 func viewLargestFiles(root string) {
@@ -293,7 +369,7 @@ func Run(entries []*scanner.Entry, total int64, root string) {
 
 		switch choice {
 		case "1":
-			viewFolders(entries, total)
+			viewFolders(entries, total, root)
 			fmt.Println()
 			prompt(dim + "  Press enter to go back..." + reset)
 		case "2":
