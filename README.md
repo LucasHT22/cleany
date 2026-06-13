@@ -1,21 +1,37 @@
 <img src="/assets/cleany.png">
 
 # Cleany
-Disk space visualizer & cleaner
+Disk space visualizer & cleaner for Windows!
+
+Pure Go.
+
+> Note: this project used AI (Claude) for improvement suggestions and quick fixes (like spot a typo.)
+
+---
+
+```
+  ██████╗██╗     ███████╗ █████╗ ███╗   ██╗██╗   ██╗
+ ██╔════╝██║     ██╔════╝██╔══██╗████╗  ██║╚██╗ ██╔╝
+ ██║     ██║     █████╗  ███████║██╔██╗ ██║ ╚████╔╝
+ ██║     ██║     ██╔══╝  ██╔══██║██║╚██╗██║  ╚██╔╝
+ ╚██████╗███████╗███████╗██║  ██║██║ ╚████║   ██║
+  ╚═════╝╚══════╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═══╝   ╚═╝
+```
 
 ## Run
 
-1. Install Go
+1. Install Go (1.25+)
 
 Go to [Go Website](https://go.dev/dl)
 
 2. Clone the repo
 
 ```
-git clone github.com/LucasHT22/cluely.git
+git clone github.com/LucasHT22/cleany.git
 ```
 
 3. Run
+It'll scan C:\ by default, but you can specify the folder:
 
 ```
 go run . C:\Users\lucas
