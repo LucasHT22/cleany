@@ -47,7 +47,7 @@ func FindDuplicates(root string, minSizeMB int64) []DuplicateGroup {
 	}
 
 	var groups []DuplicateGroup
-	far hash, paths := range hashMap {
+	for hash, paths := range hashMap {
 		if len(paths) < 2 {
 			continue
 		}
