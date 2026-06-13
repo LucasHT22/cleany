@@ -36,3 +36,5 @@ It'll scan C:\ by default, but you can specify the folder:
 ```
 go run . C:\Users\lucas
 ```
+
+or you can download the executable: https://github.com/LucasHT22/cleany/releases/tag/v1.0.0
