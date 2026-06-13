@@ -1,12 +1,10 @@
 package scanner
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 )
 
 type Entry struct {
@@ -20,82 +18,11 @@ type Entry struct {
 }
 
 func Scan(root string) ([]*Entry, int64) {
-	var()
-	var totalSize int64
-	var mu sync.Mutex
+	dirSizes := map[string]int64{}
+	fileMap := map[string]*Entry{}
+	var allFiles []*Entry
+	var total int64
 
-	rootEntry := &Entry{
-		Path: path,
-		Name: filepath.Base(root),
-		IsDir: true,
-	}
-
-	dirSizes := make(map[string]int64)
-	var dirSizesMu sync.Mutex
-
-	var wg sync.WaitGroup
-	fileChan := make(chan *Entry, 1000)
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		err := filepath.WalkDir(root, func(path string, do os.DirEntry, err error) error {
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error accessing %s: %v\n", path, err)
-				return nil
-			}
-			info, err := d.Info()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error getting info for %s: %v\n", path, err)
-				return nil
-			}
-
-			ext := strings.ToLower(filepath.Ext(path))
-			e := &Entry{
-				Path: path,
-				Name: d.Name(),
-				IsDir: d.IsDir(),
-				Ext: ext,
-			}
-
-			if !d.IsDir() {
-				e.Size = info.Size()
-				fileChan <- e
-			}
-			return nil
-		})
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error walking directory %s: %v\n", root, err)
-		}
-		close(fileChan)
-	}()
-
-	var processorWg sync.WaitGroup
-	processorWg.Add(1)
-	go func() {
-		defer processorWg.Done()
-		for f := range fileChan {
-			mu.Lock()
-			totalSize += f.Size
-			mu.Unlock()
-
-			dirSizesMu.Lock()
-			currentDir := filepath.Dir(f.Path)
-			for strings.HasPrefix(currentDir, root) || currentDir == root {
-				dirSizes[currentDir] += f.Size
-				if currentDir == root {
-					break
-				}
-				currentDir = filepath.Dir(currentDir)
-			}
-			dirSizesMu.Unlock()
-		}
-	}()
-
-	wg.Wait()
-	processorWg.Wait()
-
-	var allEntries []*Entry
 	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
@@ -111,150 +38,127 @@ func Scan(root string) ([]*Entry, int64) {
 			Name: d.Name(),
 			IsDir: d.IsDir(),
 			Ext: ext,
-			Size: info.Size(),
 		}
-		if e.IsDir {
-			dirSizesMu.Lock()
-			e.Size = dirSizes[path]
-			dirSizesMu.Unlock()
+
+		if !d.IsDir() {
+			e.Size = info.Size()
+			total += e.Size
+			allFiles = append(allFiles, e)
+
+			dir := filepath.Dir(path)
+			for dir != "" && dir != "." {
+				dirSizes[dir] += e.Size
+				parent := filepath.Dir(dir)
+				if parent == dir {
+					break
+				}
+				dir = parent
+			}
 		}
-		allEntries = append(allEntries, e)
+
+		fileMap[path] = e
 		return nil
 	})
 
-	entryMap := make(map[string]*Entry)
-	for _, e := range allEntries {
-		entryMap[e.Path] = e
+	rootEntry := &Entry{
+		Path: root,
+		Name: root,
+		IsDir: true,
+		Size: dirSizes[root],
 	}
 
-	for _, e := range allEntries {
-		if e.Path == root {
-			rootEntry = ea
-
+	seen := map[string]bool{}
+	for _, f := range allFiles {
+		rel, _ := filepath.Rel(root, f.Path)
+		parts := strings.SplitN(rel, string(os.PathSeparator), 2)
+		if len(parts) == 0 {
 			continue
 		}
-		parentPath := filepath.Dir(e.Path)
-		if parentEntry, ok := entryMap[parentPath]; ok {
-			parentEntry.Children = append(parentEntry.Children, e)
-			e.Parent = parentEntry
+		topName := parts[0]
+		topPath := filepath.Join(root, topName)
+		if !seen[topPath] {
+			seen[topPath] = true
+			info, err := os.Stat(topPath)
+			if err != nil {
+				continue
+			}
+			child := &Entry{
+				Path: topPath,
+				Name: topName,
+				IsDir: info.IsDir(),
+				Parent: rootEntry,
+			}
+			if !info.IsDir() {
+				child.Size = info.Size()
+			}
+			rootEntry.Children = append(rootEntry.Children, child)
 		}
 	}
 
-	for _, e := range allEntries {
-		sort.Slice(e.Children, func(i, j int) bool {
-			if e.Children[i].IsDir && !e.Children[j].IsDir {
-				return true
-			}
-			if !e.Children[i].IsDir && e.Children[j].IsDir {
-				return false
-			}
-			return e.Children[i].Size > e.Children[j].Size
-		})
+	sort.Slice(rootEntry.Children, func(i, j int) bool {
+		return rootEntry.Children[i].Size > rootEntry.Children[j].Size
+	})
+	if len(allFiles) > 20 {
+		allFiles = allFiles[:20]
 	}
 
-	return rootEntry.Children, totalSize
+	extMap := map[string]int64{}
+	for _, f := range allFiles {
+		if f.Ext == "" {
+			extMap["(no ext)"] += f.Size
+		} else {
+			extMap[f.Ext] += f.Size
+		}
+	}
+
+	_ = extMap
+
+	return rootEntry.Children, total
 }
 
 func ExtBreakdown(root string) map[string]int64 {
 	result := map[string]int64{}
-	var mu sync.Mutex
-
-	var mg sync.WaitGroup
-	fileChan := make(chan *Entry, 1000)
-
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-		err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-			if err != nil || d.IsDir() {
-				return nil
-			}
-			info, err := d.Info()
-			if err != nil {
-				return nil
-			}
-			ext := strings.ToLower(filepath.Ext(path))
-			if ext == "" {
-				ext = "(no ext)"
-			}
-			fileChan <- &Entry{Ext: ext, Size: info.Size()}
+	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
 			return nil
-		})
+		}
+		info, err := d.Info()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error walking directory for extension breakdown %s: %v\n", root, err)
+			return nil
 		}
-		close(fileChan)
-	}()
-
-	var processorWg sync.WaitGroup
-	processorWg.Add(1)
-	go func() {
-		defer processorWg.Done()
-		for f := range fileChan {
-			mu.Lock()
-			result[f.Ext] += f.Size
-			mu.Unlock()
+		ext := strings.ToLower(filepath.Ext(path))
+		if ext == "" {
+			ext = "(no ext)"
 		}
-	}()
-
-	wg.Wait()
-	processorWg.Wait()
-
+		result[ext] += info.Size()
+		return nil
+	})
 	return result
 }
 
 func LargestFiles(root string, n int) []*Entry {
 	var all []*Entry
-
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-	fileChan := make(chan *Entry, 1000)
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-			if err != nil || d.IsDir() {
-				return nil
-			}
-			info, err := d.Info()
-			if err != nil {
-				return nil
-			}
-			fileChan <- &Entry{
-				Path: path,
-				Name: d.Name(),
-				Size: info.Size(),
-				Ext: strings.ToLower(filepath.Ext(path)),
-			}
+	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
 			return nil
-		})
+		}
+		info, err := d.Info()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error walking directory for largest files %s: %v\n", root, err)
+			return nil
 		}
-		close(fileChan)
-	}()
-
-	var processorWg sync.WaitGroup
-	processorWg.Add(1)
-	go func() {
-		defer processorWg.Done()
-		for f := range fileChan {
-			mu.Lock()
-			allFiles = append(allFiles, f)
-			mu.Unlock()
-		}
-	}()
-
-	wg.Wait()
-	processorWg.Wait()
-
-	sort.Slice(allFiles, func(i, j int) bool {
-		return allFiles[i].Size > allFiles[j].Size
+		all = append(all, &Entry{
+			Path: path,
+			Name: d.Name(),
+			Size: info.Size(),
+			Ext: strings.ToLower(filepath.Ext(path)),
+		})
+		return nil
 	})
-	if len(allFiles) > n {
-		return allFiles[:n]
+	sort.Slice(all, func(i, j int) bool {
+		return all[i].Size > all[j].Size
+	})
+	if len(all) > n {
+		return all[:n]
 	}
-	return allFiles
+	return all
 }
