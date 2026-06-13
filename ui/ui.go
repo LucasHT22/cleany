@@ -394,6 +394,8 @@ func Run(entries []*scanner.Entry, total int64, root string) {
 		case "8":
 			viewDuplicates(root)
 		case "9":
+			viewStartup()
+		case "0":
 			viewExport(entries, total, root)
 		case "q", "Q":
 			clearScreen()
