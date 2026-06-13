@@ -32,7 +32,7 @@ foreach ($key in $keys) {
 }
 	`
 
-	cmd := exec.Command("powershell", "-NoProfile", "-NinInteractive", "-Command", script)
+	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script)
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ foreach ($key in $keys) {
 			Source: strings.TrimSpace(parts[2]),
 		})
 	}
-	return entries, all
+	return entries, nil
 }
 
 func DisableStartupEntry(name, source string) error {
